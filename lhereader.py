@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-from ROOT import TLorentzVector
+import vector
 
 class Particle:
     def __init__(self,pdgid,spin,px=0,py=0,pz=0,energy=0,mass=0):
@@ -13,27 +13,27 @@ class Particle:
     
     @property
     def p4(self):
-        return TLorentzVector(self.px,self.py,self.pz,self.energy)
+        return vector.obj(px=self.px,py=self.py,pz=self.pz,E=self.energy)
     
     @p4.setter
     def p4(self,value):
-        self.px=value.Px()
-        self.py=value.Py()
-        self.pz=value.Pz()
-        self.energy=value.E()
-        self.mass=value.M()
+        self.px=value.px
+        self.py=value.py
+        self.pz=value.pz
+        self.energy=value.E
+        self.mass=value.mass
     
     @property
     def p(self):
-        return self.p4.P()
+        return self.p4.p
     
     @property
     def eta(self):
-        return self.p4.Eta()
+        return self.p4.eta
     
     @property
     def pt(self):
-        return self.p4.Pt()
+        return self.p4.pt
     
     
 class Event:
@@ -65,6 +65,18 @@ class LHEFData:
         for event in self.events:
             partlist.extend(event.getParticlesByIDs(idlist))
         return partlist
+    
+    def toArrays(self):
+        import awkward as ak
+        fields=['pdgid','spin','px','py','pz','energy','mass']
+        return ak.zip({f:[[getattr(p,f) for p in e.particles] for e in self.events] for f in fields})
+    
+    def writeROOT(self,filename,treename='events'):
+        import uproot
+        arrays=self.toArrays()
+        with uproot.recreate(filename) as f:
+            f.mktree(treename,{'particle':arrays.type.content})
+            f[treename].extend({'particle':arrays})
         
 
 def readLHEF(name):
